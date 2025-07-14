@@ -1,12 +1,12 @@
 from pathlib import Path
+import yaml
+
 try:
     from importlib.metadata import version, PackageNotFoundError
 except ImportError:
     from importlib_metadata import version, PackageNotFoundError  # type: ignore
 from typing import Any
 from docutils import nodes
-from docutils.parsers.rst import Directive
-from sphinx.transforms import SphinxTransform
 from sphinx.util.docutils import SphinxDirective
 
 from sphinx.application import Sphinx
@@ -38,7 +38,9 @@ class PiecesDirective(SphinxDirective):
 
         # Create a new section node
         section = nodes.section()
-        section['ids'].append(nodes.make_id(f"{domain}-{subdomain}-{self.arguments[0]}"))
+        section["ids"].append(
+            nodes.make_id(f"{domain}-{subdomain}-{self.arguments[0]}")
+        )
 
         # Create a title node
         title_text = f"{self.arguments[0]} {subdomain}"
@@ -52,8 +54,6 @@ class PiecesDirective(SphinxDirective):
 
         return [section]
 
-
-import yaml
 
 def load_config(app: Sphinx) -> dict[str, list[str]]:
     """Load configuration from sphinx_pieces.yaml."""
