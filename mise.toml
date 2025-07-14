@@ -1,0 +1,14 @@
+[settings]
+python.uv_venv_auto = true
+
+[tools]
+uv = "latest"
+
+[tasks.test]
+run = "uv run pytest"
+
+[tasks."mypy"]
+run = "uv run mypy sphinx-pieces tests"
+
+[tasks."pyright"]
+run = "uv run pyright sphinx-pieces tests"
