@@ -17,5 +17,6 @@ dev = [
   "mypy>=1.16.1",
   "pyright>=1.1.403",
   "pytest>=8.4.1",
+  "pytest-sphinx>=0.6.0",
   "types-docutils>=0.21.0.20250710",
 ]

@@ -1,3 +1,4 @@
+from pathlib import Path
 try:
     from importlib.metadata import version, PackageNotFoundError
 except ImportError:
@@ -16,7 +17,7 @@ except PackageNotFoundError:
     __version__ = "unknown"
 
 
-class UnitDirective(SphinxDirective):
+class PiecesDirective(SphinxDirective):
     """
     A directive that applies a unit identifier to the following header.
 
@@ -26,87 +27,50 @@ class UnitDirective(SphinxDirective):
         -----------
     """
 
-    has_content = False
-    required_arguments = 0
-    optional_arguments = 1
+    has_content = True
+    required_arguments = 1
+    optional_arguments = 0
     final_argument_whitespace = True
 
     def run(self):
         # Get the unit parameter from the directive name
-        unit_param = self.name.split(":", 1)[1] if ":" in self.name else ""
+        domain, _, subdomain = self.name.partition(":")
 
-        # Create a pending node that will be processed by the transform
-        pending = nodes.pending(
-            UnitTransform, {"unit_param": unit_param, "lineno": self.lineno}
-        )
-        pending.source = self.state.document.current_source
-        pending.line = self.lineno
+        # Create a new section node
+        section = nodes.section()
+        section['ids'].append(nodes.make_id(f"{domain}-{subdomain}-{self.arguments[0]}"))
 
-        return [pending]
+        # Create a title node
+        title_text = f"{self.arguments[0]} {subdomain}"
+        title = nodes.title(text=title_text)
+
+        # Add the title to the section
+        section += title
+
+        # Parse the content of the directive
+        self.state.nested_parse(self.content, self.content_offset, section)
+
+        return [section]
 
 
-class UnitTransform(SphinxTransform):
-    """
-    Transform that modifies headers following unit directives.
-    """
+import yaml
 
-    default_priority = 210  # Run after most other transforms
-
-    def apply(self):
-        for pending in self.document.findall(nodes.pending):
-            if pending.transform is UnitTransform:
-                self.handle_pending(pending)
-
-    def handle_pending(self, pending):
-        unit_param = pending.details["unit_param"]
-
-        # Find the next section/header after this pending node
-        parent = pending.parent
-        pending_index = parent.index(pending)
-
-        # Look for the next section node
-        for i in range(pending_index + 1, len(parent)):
-            node = parent[i]
-            if isinstance(node, nodes.section):
-                # Found a section, modify its title
-                title = node[0]  # First child should be the title
-                if isinstance(title, nodes.title):
-                    # Append the unit parameter to the title text
-                    if title.children and isinstance(title.children[0], nodes.Text):
-                        original_text = title.children[0].astext()
-                        title.children[0] = nodes.Text(f"{original_text} {unit_param}")
-                break
-
-        # Remove the pending node
-        pending.parent.remove(pending)
+def load_config(app: Sphinx) -> dict[str, list[str]]:
+    """Load configuration from sphinx_pieces.yaml."""
+    config_path = Path(app.confdir) / "sphinx_pieces.yaml"
+    if not config_path.exists():
+        return {}
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+    return config.get("domains", {})
 
 
 def setup(app: Sphinx) -> dict[str, Any]:
-    # Register the transform
-    app.add_transform(UnitTransform)
+    domains = load_config(app)
 
-    # Custom directive class that accepts arguments
-    class UnitParameterDirective(SphinxDirective):
-        """Unit directive that takes the parameter as an argument."""
-
-        has_content = False
-        required_arguments = 1
-        optional_arguments = 0
-        final_argument_whitespace = True
-
-        def run(self):
-            unit_param = self.arguments[0] if self.arguments else ""
-
-            # Create a pending node that will be processed by the transform
-            pending = nodes.pending(
-                UnitTransform, {"unit_param": unit_param, "lineno": self.lineno}
-            )
-            pending.source = self.state.document.current_source
-            pending.line = self.lineno
-
-            return [pending]
-
-    # Register the unit directive
-    app.add_directive("unit", UnitParameterDirective)
+    for domain, subdomains in domains.items():
+        for subdomain in subdomains:
+            name = f"{domain}:{subdomain}"
+            app.add_directive(name, PiecesDirective)
 
     return {"version": __version__, "parallel_read_safe": True}

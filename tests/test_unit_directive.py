@@ -8,8 +8,8 @@ from pathlib import Path
 
 
 @pytest.mark.sphinx("html", testroot="unit-directive")
-def test_unit_directive_basic(app, status, warning):
-    """Test basic unit directive functionality."""
+def test_pieces_directive_basic(app: SphinxTestApp, status, warning):
+    """Test basic pieces directive functionality."""
     app.build()
 
     # Check that the build succeeded
@@ -19,29 +19,29 @@ def test_unit_directive_basic(app, status, warning):
     content = (app.outdir / "index.html").read_text(encoding="utf-8")
 
     # The header "Bar" should be modified to "Bar fafafa"
-    assert "Bar fafafa" in content
+    assert "<h2>Bar fafafa" in content
 
     # The original header text should not appear alone
-    assert "Bar</h2>" not in content or "Bar fafafa</h2>" in content
+    assert "<h2>Bar</h2>" not in content or "<h2>Bar fafafa</h2>" in content
 
 
 @pytest.mark.sphinx("html", testroot="unit-directive")
-def test_unit_directive_multiple_levels(app, status, warning):
-    """Test unit directive with different header levels."""
+def test_pieces_directive_multiple_levels(app: SphinxTestApp, status, warning):
+    """Test pieces directive with different header levels."""
     app.build()
 
     content = (app.outdir / "index.html").read_text(encoding="utf-8")
 
     # Test h1 level
-    assert "Main Title test123" in content
+    assert "<h2>Main Title test123" in content
 
     # Test h2 level
-    assert "Subtitle xyz789" in content
+    assert "<h2>Subtitle xyz789" in content
 
 
 @pytest.mark.sphinx("html", testroot="unit-directive")
-def test_unit_directive_no_following_header(app, status, warning):
-    """Test unit directive behavior when no header follows."""
+def test_pieces_directive_no_following_header(app: SphinxTestApp, status, warning):
+    """Test pieces directive behavior when no header follows."""
     app.build()
 
     # Should not crash and build successfully
@@ -81,24 +81,15 @@ Test Document
 
 This is a test document for the unit directive.
 
-.. unit:: test123
-
-Main Title
-==========
+.. pieces:test123:: Main Title
 
 Some content under the main title.
 
-.. unit:: fafafa
-
-Bar
----
+.. pieces:fafafa:: Bar
 
 Some content here under Bar.
 
-.. unit:: xyz789
-
-Subtitle
-~~~~~~~~
+.. pieces:xyz789:: Subtitle
 
 Content under subtitle.
 
@@ -107,7 +98,7 @@ Regular Header
 
 This header should not be affected.
 
-.. unit:: orphan
+.. pieces:orphan::
 
 This unit directive has no following header.
 
@@ -117,7 +108,7 @@ The end.
     )
 
 
-def test_unit_directive_integration():
+def test_pieces_directive_integration():
     """Integration test that creates a real Sphinx app and tests the directive."""
     import tempfile
     from pathlib import Path
@@ -140,12 +131,15 @@ master_doc = 'index'
 Test
 ====
 
-.. unit:: fafafa
+.. pieces:fafafa:: Bar
 
-Bar
----
-
-content
+   content
+""")
+        # Create sphinx_pieces.yaml
+        (srcdir / "sphinx_pieces.yaml").write_text("""
+domains:
+    pieces:
+        - fafafa
 """)
 
         # Create output directory
@@ -168,7 +162,9 @@ content
             if html_file.exists():
                 content = html_file.read_text()
                 # Should contain the modified header
-                assert "Bar fafafa" in content or "fafafa" in content
+                assert "<h2>Bar fafafa" in content
+                # Should contain the content
+                assert "content" in content
 
         finally:
             app.cleanup()

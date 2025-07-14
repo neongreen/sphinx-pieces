@@ -404,6 +404,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pytest-sphinx"
+version = "0.6.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8f/12/a6e99712955b7057accbe43f7f709cf212e6fc00f570bfdc93574335ba5b/pytest_sphinx-0.6.3.tar.gz", hash = "sha256:3b63c8181b9de6a5e5c9826d1b4dc0c827245bec8e64c9f16f269be08be5ecd5", size = 13690, upload-time = "2024-04-13T19:11:51.905Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/70/db/79570f7eebfa0f24b670d985423f4fa45fee67ef8feb25c6b58cbe2b0bb7/pytest_sphinx-0.6.3-py3-none-any.whl", hash = "sha256:856e760e64dfbfc89e362e187d641140a267b97881d3ef8aeefb72cc8438ac40", size = 10349, upload-time = "2024-04-13T19:11:50.394Z" },
+]
+
+[[package]]
 name = "requests"
 version = "2.32.4"
 source = { registry = "https://pypi.org/simple" }
@@ -531,7 +543,7 @@ wheels = [
 ]
 
 [[package]]
-name = "sphinx_pieces"
+name = "sphinx-pieces"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
@@ -545,6 +557,7 @@ dev = [
     { name = "mypy" },
     { name = "pyright" },
     { name = "pytest" },
+    { name = "pytest-sphinx" },
     { name = "types-docutils" },
 ]
 
@@ -556,6 +569,7 @@ dev = [
     { name = "mypy", specifier = ">=1.16.1" },
     { name = "pyright", specifier = ">=1.1.403" },
     { name = "pytest", specifier = ">=8.4.1" },
+    { name = "pytest-sphinx", specifier = ">=0.6.0" },
     { name = "types-docutils", specifier = ">=0.21.0.20250710" },
 ]
 
