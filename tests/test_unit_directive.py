@@ -2,9 +2,10 @@
 Test for the unit directive functionality.
 """
 
+from pathlib import Path
+
 import pytest
 from sphinx.testing.util import SphinxTestApp
-from pathlib import Path
 
 
 @pytest.mark.sphinx("html", testroot="unit-directive")

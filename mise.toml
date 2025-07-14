@@ -2,6 +2,7 @@
 python.uv_venv_auto = true
 
 [tools]
+dprint = "latest"
 uv = "latest"
 
 [tasks.test]
@@ -12,3 +13,7 @@ run = "uv run mypy sphinx_pieces tests"
 
 [tasks."pyright"]
 run = "uv run pyright sphinx_pieces tests"
+
+[tasks.sample]
+description = "Build the sample project in sample/"
+run = "uv run sphinx-build -b html sample/ sample/_build/html"
