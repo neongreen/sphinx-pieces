@@ -1,25 +1,19 @@
-"""
-sphinx-pieces
-~~~~~~~~~~~~~~~~~~~
-
-pieces of content
-
-:copyright: Copyright 2017 by Emily <emily@artyom.me>
-:license: BSD, see LICENSE for details.
-"""
-
-import pbr.version
+try:
+    from importlib.metadata import version, PackageNotFoundError
+except ImportError:
+    from importlib_metadata import version, PackageNotFoundError  # type: ignore
+from typing import Any
 from docutils import nodes
 from docutils.parsers.rst import Directive
 from sphinx.transforms import SphinxTransform
 from sphinx.util.docutils import SphinxDirective
 
-if False:
-    # For type annotations
-    from typing import Any, Dict, List  # noqa
-    from sphinx.application import Sphinx  # noqa
+from sphinx.application import Sphinx
 
-__version__ = pbr.version.VersionInfo("pieces").version_string()
+try:
+    __version__ = version("sphinx_pieces")
+except PackageNotFoundError:
+    __version__ = "unknown"
 
 
 class UnitDirective(SphinxDirective):
@@ -59,7 +53,7 @@ class UnitTransform(SphinxTransform):
     default_priority = 210  # Run after most other transforms
 
     def apply(self):
-        for pending in self.document.traverse(nodes.pending):
+        for pending in self.document.findall(nodes.pending):
             if pending.transform is UnitTransform:
                 self.handle_pending(pending)
 
@@ -87,9 +81,7 @@ class UnitTransform(SphinxTransform):
         pending.parent.remove(pending)
 
 
-def setup(app):
-    # type: (Sphinx) -> Dict[unicode, Any]
-
+def setup(app: Sphinx) -> dict[str, Any]:
     # Register the transform
     app.add_transform(UnitTransform)
 

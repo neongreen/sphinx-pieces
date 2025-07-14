@@ -64,7 +64,7 @@ def setup_test_root(rootdir, monkeypatch):
     conf_py = test_root / "conf.py"
     conf_py.write_text(
         """
-extensions = ['sphinx-pieces']
+extensions = ['sphinx_pieces']
 master_doc = 'index'
 exclude_patterns = ['_build']
 html_theme = 'basic'
@@ -131,7 +131,7 @@ def test_unit_directive_integration():
 
         # Create conf.py
         (srcdir / "conf.py").write_text("""
-extensions = ['sphinx-pieces']
+extensions = ['sphinx_pieces']
 master_doc = 'index'
 """)
 
