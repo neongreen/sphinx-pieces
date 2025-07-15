@@ -3,11 +3,13 @@ import yaml
 from collections import defaultdict
 from typing import Any
 from docutils import nodes
+from docutils.statemachine import StringList
 from sphinx.util.docutils import SphinxDirective
 from sphinx.domains import Domain, ObjType, Index, IndexEntry
 from sphinx.roles import XRefRole
 from sphinx.locale import _
 from sphinx.application import Sphinx
+from sphinx.transforms import SphinxTransform
 
 try:
     from importlib.metadata import version, PackageNotFoundError
@@ -20,51 +22,79 @@ except PackageNotFoundError:
     __version__ = "unknown"
 
 
-# Index for unit:parameter objects
-class UnitParameterIndex(Index):
-    name = "unit-param-index"
-    localname = "Unit Parameter Index"
-    shortname = "unit param"
+def create_domain(domain_name: str, species_list: list[str]) -> type[Domain]:
+    """Create a new Domain subclass."""
 
-    def generate(self, docnames=None):
-        content = defaultdict(list)
-        for fullname, disp, typ, doc, anchor, _prio in self.domain.get_objects():
-            if typ != "parameter" or (docnames and doc not in docnames):
-                continue
-            letter = disp[0].upper()
-            content[letter].append(IndexEntry(disp, 0, doc, anchor, "", "", ""))
-        return sorted(content.items()), False
+    class PieceDirective(SphinxDirective):
+        has_content = True
+        required_arguments = 1
+        optional_arguments = 0
+        final_argument_whitespace = True
 
+        def run(self):
+            env = self.env
+            domain = env.get_domain(domain_name)
+            piece_type = self.name.split(":")[1]
+            piece_name = self.arguments[0]
+            targetid = f"{domain_name}-{piece_type}-{piece_name}"
+            targetnode = nodes.target("", "", ids=[targetid])
 
-# The directive for unit:parameter
-class UnitParameterDirective(SphinxDirective):
-    has_content = True
-    required_arguments = 1
-    optional_arguments = 0
-    final_argument_whitespace = True
+            # Register object for index in domain data
+            domain.data[f"{piece_type}s"].append(
+                {
+                    "docname": env.docname,
+                    "name": piece_name,
+                    "targetid": targetid,
+                }
+            )
 
-    def run(self):
-        env = self.env
-        domain = env.get_domain("unit")
-        targetid = f"unit-parameter-{self.arguments[0]}"
-        targetnode = nodes.target("", "", ids=[targetid])
+            # Create a placeholder node
+            placeholder = nodes.pending(
+                PieceTransform,
+                {"piece_type": piece_type, "piece_name": piece_name},
+            )
+            string_list = StringList([f"**{piece_name}**"])
+            self.content.insert(0, string_list)
+            self.state.nested_parse(self.content, self.content_offset, placeholder)
 
-        # Register object for index in domain data
-        domain.data["parameters"].append(
-            {
-                "docname": env.docname,
-                "name": self.arguments[0],
-                "targetid": targetid,
-            }
-        )
+            return [targetnode, placeholder]
 
-        title = nodes.strong(text=self.arguments[0])
-        para = nodes.paragraph()
-        para += title
-        if self.content:
-            self.state.nested_parse(self.content, self.content_offset, para)
+    class PieceIndex(Index):
+        name = f"{domain_name}-gen-index"
+        localname = f"{domain_name.capitalize()} Index"
+        shortname = f"{domain_name.capitalize()} Index"
 
-        return [targetnode, para]
+        def generate(self, docnames=None):
+            content = defaultdict(list)
+            for fullname, disp, typ, doc, anchor, _prio in self.domain.get_objects():
+                if docnames and doc not in docnames:
+                    continue
+                letter = disp[0].upper()
+                content[letter].append(IndexEntry(disp, 0, doc, anchor, "", "", ""))
+            return sorted(content.items()), False
+
+    class PieceDomain(Domain):
+        name = domain_name
+        label = domain_name.capitalize()
+        object_types = {s: ObjType(_(s), s) for s in species_list}
+        directives = {s: PieceDirective for s in species_list}
+        roles = {s: XRefRole() for s in species_list}
+        indices = [PieceIndex]
+        initial_data = {f"{s}s": [] for s in species_list}
+
+        def get_objects(self):
+            for s in species_list:
+                for obj in self.data[f"{s}s"]:
+                    yield (
+                        obj["name"],
+                        obj["name"],
+                        s,
+                        obj["docname"],
+                        obj["targetid"],
+                        1,
+                    )
+
+    return PieceDomain
 
 
 def load_config(app: Sphinx) -> dict[str, list[str]]:
@@ -77,50 +107,33 @@ def load_config(app: Sphinx) -> dict[str, list[str]]:
     return config.get("domains", {})
 
 
-# The domain for unit
-class UnitDomain(Domain):
-    indices = [UnitParameterIndex]
-    name = "unit"
-    label = "Unit"
-    object_types = {
-        "parameter": ObjType(_("parameter"), "parameter"),
-    }
-    directives = {
-        "parameter": UnitParameterDirective,
-    }
-    roles = {
-        "parameter": XRefRole(),
-    }
-    initial_data = {
-        "parameters": [],
-    }
+from sphinx.transforms import SphinxTransform
 
-    def clear_doc(self, docname):
-        self.data["parameters"] = [
-            obj for obj in self.data["parameters"] if obj["docname"] != docname
-        ]
 
-    def merge_domaindata(self, docnames, otherdata):
-        for obj in otherdata["parameters"]:
-            if obj["docname"] in docnames:
-                self.data["parameters"].append(obj)
+class PieceTransform(SphinxTransform):
+    default_priority = 700
 
-    def process_doc(self, env, docname, document):
-        # No-op: all registration is done in the directive itself
-        pass
-
-    def get_objects(self):
-        for obj in self.data["parameters"]:
-            yield (
-                obj["name"],
-                obj["name"],
-                "parameter",
-                obj["docname"],
-                obj["targetid"],
-                1,
-            )
+    def apply(self, **kwargs: Any) -> None:
+        for node in self.document.findall(nodes.pending):
+            if node.details["piece_name"]:
+                # This is our placeholder node.
+                # The content of the directive is now in the placeholder node.
+                # We can now modify the content of the node.
+                # For example, let's add the piece_type to the title.
+                new_paragraph = nodes.paragraph()
+                for child in node.children:
+                    if isinstance(child, nodes.paragraph) and child.children and isinstance(child.children[0], nodes.strong):
+                        strong_node = child.children[0]
+                        original_text = strong_node.astext()
+                        strong_node.children = [nodes.Text(f"{original_text} {node.details['piece_type']}")]
+                    new_paragraph.append(child.deepcopy())
+                node.replace_self(new_paragraph)
 
 
 def setup(app: Sphinx) -> dict[str, Any]:
-    app.add_domain(UnitDomain)
+    config = load_config(app)
+    for domain_name, species in config.items():
+        app.add_domain(create_domain(domain_name, species))
+    app.add_transform(PieceTransform)
+
     return {"version": __version__, "parallel_read_safe": True}
